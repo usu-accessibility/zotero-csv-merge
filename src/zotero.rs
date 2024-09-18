@@ -1,3 +1,4 @@
+// This module handles api requests to Zotero
 use reqwest::{Client, Error, Response};
 use serde::{Deserialize, Serialize};
 
@@ -6,7 +7,7 @@ use crate::PatchData;
 // extracts the library version
 #[derive(Deserialize)]
 struct LibraryResponse {
-    version: i32,
+    version: usize,
 }
 
 // Zotero client object
@@ -27,7 +28,7 @@ impl<'a> Zotero<'a> {
     }
 
     // patches up to 50 entries at once
-    async fn patch(&mut self, data: Vec<PatchData>) -> Result<Response, Error> {
+    async fn patch(&self, data: Vec<PatchData>) -> Result<Response, Error> {
         // fetch library version
         let library_version = self
             .client
@@ -46,12 +47,11 @@ impl<'a> Zotero<'a> {
             .header("If-Unmodified-Since-Version", library_version)
             .json(&data)
             .send()
-            .await?;
-        todo!()
+            .await
     }
 
     // breaks patch data into groups <= 50 and calls patch()
-    pub fn patch_all(&mut self) {
+    pub fn patch_all(&self) {
         todo!()
     }
 }
