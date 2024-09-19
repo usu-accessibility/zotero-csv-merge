@@ -1,3 +1,5 @@
+use std::mem;
+
 // This module handles api requests to Zotero
 use reqwest::{Client, Error, Response};
 use serde::{Deserialize, Serialize};
@@ -51,7 +53,24 @@ impl<'a> Zotero<'a> {
     }
 
     // breaks patch data into groups <= 50 and calls patch()
-    pub fn patch_all(&self) {
-        todo!()
+    pub async fn patch_all(&self, mut data: Vec<PatchData>) -> Result<(), Error> {
+        while !data.is_empty() {
+            let batch: Vec<PatchData> = if data.len() >= 50 {
+                data.drain(..50).collect()
+            } else {
+                mem::take(&mut data)
+            };
+            // patch the batch
+            self.on_response(self.patch(batch).await?);
+        }
+        Ok(())
+    }
+
+    // TODO: Handle Backoff headers and 429, resend on any other error
+    fn on_response(&self, res: Response) {
+        match res.error_for_status() {
+            Ok(res) => (),
+            Err(err) => (),
+        }
     }
 }

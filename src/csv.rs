@@ -23,10 +23,11 @@ impl CsvReader {
     }
 
     pub fn extract(&mut self) -> Result<Vec<PatchData>, Box<dyn std::error::Error>> {
-        let mut data: Vec<PatchData> = Vec::with_capacity(self.count_lines());
+        let mut data: Vec<PatchData> = Vec::with_capacity(self.count_lines() - 1);
         for result in self.reader.deserialize() {
-            data.push(result?)
+            data.push(result?);
         }
+        println!("{:?}", data);
         Ok(data)
     }
 }
