@@ -1,7 +1,10 @@
-use std::mem;
+use std::{mem, thread::sleep, time::Duration};
 
 // This module handles api requests to Zotero
-use reqwest::{Client, Error, Response};
+use reqwest::{
+    header::{HeaderValue, RETRY_AFTER},
+    Client, Error, Response, StatusCode,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::PatchData;
@@ -32,24 +35,10 @@ impl<'a> Zotero<'a> {
     // patches up to 50 entries at once
     async fn patch(&self, data: Vec<PatchData>) -> Result<Response, Error> {
         // fetch library version
-        let library_version = self
-            .client
-            .get(&self.base_url)
-            .bearer_auth(self.api_token)
-            .send()
-            .await?
-            .json::<LibraryResponse>()
-            .await?
-            .version;
+        let library_version = self.library_version().await?;
 
         // send the patch
-        self.client
-            .patch(&self.base_url)
-            .bearer_auth(self.api_token)
-            .header("If-Unmodified-Since-Version", library_version)
-            .json(&data)
-            .send()
-            .await
+        self.patch_request(library_version, &data).await
     }
 
     // breaks patch data into groups <= 50 and calls patch()
@@ -61,16 +50,83 @@ impl<'a> Zotero<'a> {
                 mem::take(&mut data)
             };
             // patch the batch
-            self.on_response(self.patch(batch).await?);
+            self.patch(batch).await?;
         }
         Ok(())
     }
 
-    // TODO: Handle Backoff headers and 429, resend on any other error
-    fn on_response(&self, res: Response) {
-        match res.error_for_status() {
-            Ok(res) => (),
-            Err(err) => (),
+    async fn library_version(&self) -> Result<usize, Error> {
+        loop {
+            let res = self
+                .client
+                .get(&self.base_url)
+                .bearer_auth(self.api_token)
+                .send()
+                .await?;
+            match res.status() {
+                StatusCode::OK => {
+                    if let Some(val) = res.headers().get("Backoff") {
+                        sleep(Duration::from_secs(val.to_u64()));
+                        return Ok(res.json::<LibraryResponse>().await?.version);
+                    } else {
+                        return Ok(res.json::<LibraryResponse>().await?.version);
+                    }
+                }
+                StatusCode::TOO_MANY_REQUESTS => {
+                    if let Some(val) = res.headers().get("Retry-After") {
+                        sleep(Duration::from_secs(val.to_u64()));
+                        continue;
+                    }
+                }
+                _ => continue,
+            }
         }
+    }
+
+    async fn patch_request(
+        &self,
+        library_version: usize,
+        data: &Vec<PatchData>,
+    ) -> Result<Response, Error> {
+        loop {
+            let res = self
+                .client
+                .patch(&self.base_url)
+                .bearer_auth(self.api_token)
+                .header("If-Unmodified-Since-Version", library_version)
+                .json(data)
+                .send()
+                .await?;
+            match res.status() {
+                StatusCode::OK => {
+                    if let Some(val) = res.headers().get("Backoff") {
+                        sleep(Duration::from_secs(val.to_u64()));
+                        return Ok(res);
+                    } else {
+                        return Ok(res);
+                    }
+                }
+                StatusCode::TOO_MANY_REQUESTS => {
+                    if let Some(val) = res.headers().get("Retry-After") {
+                        sleep(Duration::from_secs(val.to_u64()));
+                        continue;
+                    }
+                }
+                _ => continue,
+            }
+        }
+    }
+}
+
+pub trait HeaderValueExt {
+    fn to_u64(&self) -> u64;
+}
+
+impl HeaderValueExt for HeaderValue {
+    fn to_u64(&self) -> u64 {
+        self.to_str()
+            .expect("Failed to convert HeaderValue to str")
+            .parse()
+            .expect("Failed to convert HeaderValue to u64")
     }
 }
