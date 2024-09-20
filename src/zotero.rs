@@ -1,11 +1,8 @@
 use std::{mem, thread::sleep, time::Duration};
 
 // This module handles api requests to Zotero
-use reqwest::{
-    header::{HeaderValue, RETRY_AFTER},
-    Client, Error, Response, StatusCode,
-};
-use serde::{Deserialize, Serialize};
+use reqwest::{header::HeaderValue, Client, Error, Response, StatusCode};
+use serde::Deserialize;
 
 use crate::PatchData;
 
@@ -35,9 +32,12 @@ impl<'a> Zotero<'a> {
     // patches up to 50 entries at once
     async fn patch(&self, data: Vec<PatchData>) -> Result<Response, Error> {
         // fetch library version
+        println!("Fetching library version...");
         let library_version = self.library_version().await?;
+        println!("Library version: {}", library_version);
 
         // send the patch
+        println!("Sending patch for keys: {:?}", data.iter().map(|e| &e.key));
         self.patch_request(library_version, &data).await
     }
 
@@ -50,19 +50,24 @@ impl<'a> Zotero<'a> {
                 mem::take(&mut data)
             };
             // patch the batch
-            self.patch(batch).await?;
+            let res = self.patch(batch).await?;
+            println!("{:?}", res.status());
         }
+        println!("All data patched.");
         Ok(())
     }
 
+    // fetches the library version
     async fn library_version(&self) -> Result<usize, Error> {
         loop {
+            // send the request and wait for response
             let res = self
                 .client
                 .get(&self.base_url)
                 .bearer_auth(self.api_token)
                 .send()
                 .await?;
+            // handle Backoff headers and 429 responses, resends on any response other than OK
             match res.status() {
                 StatusCode::OK => {
                     if let Some(val) = res.headers().get("Backoff") {
@@ -89,6 +94,7 @@ impl<'a> Zotero<'a> {
         data: &Vec<PatchData>,
     ) -> Result<Response, Error> {
         loop {
+            // send the request and await response
             let res = self
                 .client
                 .patch(&self.base_url)
@@ -97,8 +103,9 @@ impl<'a> Zotero<'a> {
                 .json(data)
                 .send()
                 .await?;
+            // handle Backoff header and 429 responses, panics upon any response other than No Content
             match res.status() {
-                StatusCode::OK => {
+                StatusCode::NO_CONTENT => {
                     if let Some(val) = res.headers().get("Backoff") {
                         sleep(Duration::from_secs(val.to_u64()));
                         return Ok(res);
@@ -112,7 +119,7 @@ impl<'a> Zotero<'a> {
                         continue;
                     }
                 }
-                _ => continue,
+                _ => panic!("{}", res.status()),
             }
         }
     }
