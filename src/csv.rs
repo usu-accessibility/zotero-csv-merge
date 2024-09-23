@@ -10,6 +10,7 @@ pub struct CsvReader {
 }
 
 impl CsvReader {
+    // create a new reader struct from path
     pub fn new(path: String) -> CsvReader {
         CsvReader {
             reader: Reader::from_path(&path).expect("CSV file not found"),
@@ -17,11 +18,13 @@ impl CsvReader {
         }
     }
 
+    // counts the lines in the csv file so the vec size doesn't need to be adjusted during reading
     fn count_lines(&self) -> usize {
         let file = fs::read_to_string(&self.path).expect("Error reading CSV file");
         file.lines().count()
     }
 
+    // extract the data we desire
     pub fn extract(&mut self) -> Result<Vec<PatchData>, Box<dyn std::error::Error>> {
         println!("Extracting from: {}", self.path);
         let mut data: Vec<PatchData> = Vec::with_capacity(self.count_lines() - 1);

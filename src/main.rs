@@ -14,5 +14,12 @@ async fn main() {
     // initialize zotero client and csv reader
     let zotero = Zotero::set_group(&zotero_group_id, &zotero_api_token);
     let mut reader = CsvReader::new(csv_path);
-    reader.extract().expect("some sort of failure");
+    // extract relevant data from the csv file
+    let data = reader.extract().expect("Failure reading csv file");
+
+    // patch the library
+    zotero
+        .patch_all(data)
+        .await
+        .expect("Error during the patching process");
 }
