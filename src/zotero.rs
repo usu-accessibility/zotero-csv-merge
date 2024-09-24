@@ -110,7 +110,7 @@ impl<'a> Zotero<'a> {
                 .json(data)
                 .send()
                 .await?;
-            // handle Backoff header and 429 responses, panics upon any response other than No Content
+            // handle Backoff header and 429 responses, panics upon any response other than OK
             match res.status() {
                 // successful
                 StatusCode::OK => {
