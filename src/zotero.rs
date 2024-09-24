@@ -37,7 +37,10 @@ impl<'a> Zotero<'a> {
         println!("Library version: {}", library_version);
 
         // send the patch
-        println!("Sending patch for keys: {:?}", data.iter().map(|e| &e.key));
+        println!(
+            "Sending patch for keys: {:#?}",
+            data.iter().map(|e| &e.key).collect::<Vec<&String>>()
+        );
         self.patch_request(library_version, &data).await
     }
 
@@ -63,7 +66,7 @@ impl<'a> Zotero<'a> {
             // send the request and wait for response
             let res = self
                 .client
-                .get(&self.base_url)
+                .get(format!("{}/{}", &self.base_url, "collections"))
                 .bearer_auth(self.api_token)
                 .send()
                 .await?;
@@ -72,10 +75,12 @@ impl<'a> Zotero<'a> {
                 StatusCode::OK => {
                     if let Some(val) = res.headers().get("Backoff") {
                         sleep(Duration::from_secs(val.to_u64()));
-                        return Ok(res.json::<LibraryResponse>().await?.version);
-                    } else {
-                        return Ok(res.json::<LibraryResponse>().await?.version);
                     }
+                    return Ok(res
+                        .headers()
+                        .get("Last-Modified-Version")
+                        .expect("Version header not found")
+                        .to_u64() as usize);
                 }
                 StatusCode::TOO_MANY_REQUESTS => {
                     if let Some(val) = res.headers().get("Retry-After") {
@@ -99,7 +104,7 @@ impl<'a> Zotero<'a> {
             // send the request and await response
             let res = self
                 .client
-                .patch(&self.base_url)
+                .post(format!("{}/{}", &self.base_url, "items"))
                 .bearer_auth(self.api_token)
                 .header("If-Unmodified-Since-Version", library_version)
                 .json(data)
@@ -108,16 +113,14 @@ impl<'a> Zotero<'a> {
             // handle Backoff header and 429 responses, panics upon any response other than No Content
             match res.status() {
                 // successful
-                StatusCode::NO_CONTENT => {
+                StatusCode::OK => {
                     // checks for Backoff header and waits the specified duration
                     if let Some(val) = res.headers().get("Backoff") {
                         let seconds = val.to_u64();
                         println!("Backoff: {} seconds", seconds);
                         sleep(Duration::from_secs(seconds));
-                        return Ok(res);
-                    } else {
-                        return Ok(res);
                     }
+                    return Ok(res);
                 }
                 // rate limit exceeded
                 StatusCode::TOO_MANY_REQUESTS => {
@@ -170,6 +173,6 @@ mod tests {
 
         let zotero = Zotero::set_group(&group_id, &api_token);
         let library_version = zotero.library_version().await.unwrap();
-        assert_eq!(library_version, 270);
+        assert_eq!(library_version, 70117);
     }
 }
