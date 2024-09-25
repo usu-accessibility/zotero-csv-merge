@@ -48,6 +48,7 @@ impl<'a> Zotero<'a> {
             // patch the batch
             let res = self.patch(batch).await?;
             println!("{:?}", res.status());
+            println!("{} entries left to patch.", data.len());
         }
         println!("All data patched.");
         Ok(())
@@ -126,6 +127,11 @@ impl<'a> Zotero<'a> {
                 // library version no longer matches, fetch current library version and resend
                 StatusCode::PRECONDITION_FAILED => {
                     library_version = self.library_version().await?;
+                    continue;
+                }
+                // on server error, wait 10 seconds then resend
+                StatusCode::INTERNAL_SERVER_ERROR => {
+                    sleep(Duration::from_secs(10));
                     continue;
                 }
                 // Any other code will panic the thread
