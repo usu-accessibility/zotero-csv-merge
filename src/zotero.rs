@@ -2,15 +2,8 @@ use std::{mem, thread::sleep, time::Duration};
 
 // This module handles api requests to Zotero
 use reqwest::{header::HeaderValue, Client, Error, Response, StatusCode};
-use serde::Deserialize;
 
 use crate::PatchData;
-
-// extracts the library version
-#[derive(Deserialize)]
-struct LibraryResponse {
-    version: usize,
-}
 
 // Zotero client object
 pub struct Zotero<'a> {
