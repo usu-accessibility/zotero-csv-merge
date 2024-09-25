@@ -23,3 +23,16 @@ async fn main() {
         .await
         .expect("Error during the patching process");
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_csv_reader() {
+        dotenv().ok();
+        let csv_path = var("CSV_PATH").expect("CSV_PATH must be set.");
+        let mut reader = CsvReader::new(csv_path);
+        reader.extract().expect("Failure reading csv file");
+    }
+}

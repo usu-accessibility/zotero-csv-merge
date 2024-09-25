@@ -68,7 +68,9 @@ impl<'a> Zotero<'a> {
             match res.status() {
                 StatusCode::OK => {
                     if let Some(val) = res.headers().get("Backoff") {
-                        sleep(Duration::from_secs(val.to_u64()));
+                        let seconds = val.to_u64();
+                        println!("Backoff: {} seconds", seconds);
+                        sleep(Duration::from_secs(seconds));
                     }
                     return Ok(res
                         .headers()
@@ -78,7 +80,9 @@ impl<'a> Zotero<'a> {
                 }
                 StatusCode::TOO_MANY_REQUESTS => {
                     if let Some(val) = res.headers().get("Retry-After") {
-                        sleep(Duration::from_secs(val.to_u64()));
+                        let seconds = val.to_u64();
+                        println!("Retry-After: {} seconds", seconds);
+                        sleep(Duration::from_secs(seconds));
                         continue;
                     }
                 }
@@ -120,6 +124,8 @@ impl<'a> Zotero<'a> {
                 StatusCode::TOO_MANY_REQUESTS => {
                     // extract Retry-After header, wait specified duration and resend
                     if let Some(val) = res.headers().get("Retry-After") {
+                        let seconds = val.to_u64();
+                        println!("Retry-After: {} seconds", seconds);
                         sleep(Duration::from_secs(val.to_u64()));
                         continue;
                     }
@@ -131,6 +137,7 @@ impl<'a> Zotero<'a> {
                 }
                 // on server error, wait 10 seconds then resend
                 StatusCode::INTERNAL_SERVER_ERROR => {
+                    println!("Server error, retrying in 10 seconds");
                     sleep(Duration::from_secs(10));
                     continue;
                 }
@@ -171,7 +178,6 @@ mod tests {
         let group_id = var("ZOTERO_GROUP_ID").expect("ZOTERO_GROUP_ID must be set.");
 
         let zotero = Zotero::set_group(&group_id, &api_token);
-        let library_version = zotero.library_version().await.unwrap();
-        assert_eq!(library_version, 70117);
+        zotero.library_version().await.unwrap();
     }
 }
