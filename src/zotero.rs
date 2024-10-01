@@ -39,6 +39,7 @@ impl<'a> Zotero<'a> {
 
     // breaks patch data into groups <= 50 and calls patch()
     pub async fn patch_all(&self, mut data: Vec<PatchData>) -> Result<(), Error> {
+        let oglen = data.len();
         while !data.is_empty() {
             let batch: Vec<PatchData> = if data.len() >= 50 {
                 data.drain(..50).collect()
@@ -48,7 +49,12 @@ impl<'a> Zotero<'a> {
             // patch the batch
             let res = self.patch(batch).await?;
             println!("{:?}", res.status());
-            println!("{} entries left to patch.", data.len());
+            println!(
+                "{}/{} entries left to patch, {}% complete",
+                data.len(),
+                oglen,
+                (oglen - data.len()) / oglen
+            );
         }
         println!("All data patched.");
         Ok(())
@@ -148,8 +154,9 @@ impl<'a> Zotero<'a> {
         }
     }
 }
-// trait enxtension to allow conversion between HeaderValue and u64
-// used to extract the value from Backoff and Retry-After headers
+
+// trait extension to allow conversion between HeaderValue and u64
+// used to extract the value from Backoff and Retry-After headers and the Last-Modified-Version header
 pub trait HeaderValueExt {
     fn to_u64(&self) -> u64;
 }
@@ -169,7 +176,7 @@ mod tests {
     use super::*;
     use dotenvy::{dotenv, var};
 
-    // test for the HeaderValueExt::to_u64 function
+    // test for the HeaderValueExt::to_u64 function and to ensure that ZOTERO_API_TOKEN and ZOTERO_GROUP_ID token are both set
     #[tokio::test]
     async fn test_library_version() {
         // fetch relevant environment variables

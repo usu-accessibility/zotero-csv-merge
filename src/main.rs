@@ -28,6 +28,7 @@ async fn main() {
 mod tests {
     use super::*;
 
+    // tests the csv reader and ensures the CSV_PATH variable is set.
     #[test]
     fn test_csv_reader() {
         dotenv().ok();
