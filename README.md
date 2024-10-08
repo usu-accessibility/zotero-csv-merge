@@ -23,7 +23,7 @@ A script for merging data from a CSV file into a Zotero Library. Originally desi
 
 The `.env` file that you create in the root directory of this repository must contain the following environment variables:
 
-- `ZOTERO_API_TOKEN`: The API token used to authenticate the Zotero client. Personal API keys can be created by logging into [zotero.org](zotero.org) > Profile > Edit Profile > Security.
+- `ZOTERO_API_TOKEN`: The API token used to authenticate the Zotero client. Personal API keys can be created by logging into [zotero.org](https://zotero.org) > Profile > Edit Profile > Security.
 - `ZOTERO_GROUP_ID`: The group/user ID associated with the target library you wish to merge the CSV data into. User ID can be found in the same location specified above. From my experience, the easiest way to find Group ID is to send a `GET` request to `https://api.zotero.org/users/<userID>/groups`.
 - `CSV_PATH`: The path to the CSV file relative to the project directory.
 
